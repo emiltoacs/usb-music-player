@@ -13,8 +13,8 @@ from mutagen.oggvorbis import OggVorbis
 import ffmpeg
 
 
-def normalize_tags(artist):
-    "Truncate artist field between beginning and first +"
+def normalize_artist(artist):
+    "Truncate artist field between beginning and first '+' to keep the same artist on all the album"
     return artist.split("+")[0].strip()
     # pos_split = artist.find("+")
     # if pos_split != -1:
@@ -36,21 +36,23 @@ def convert_to_mp3(input_file):
         return input_file
 
 
-def normalize_audio_files_tags_for_USB_player(directory):
-    """In the current directory and subdirectory, normalize the tags for my
-    AGPTEK music player"""
+def normalize_audio_files_tags_for_usb_player(directory):
+    """
+    In the current directory and subdirectory, normalize the tags for my
+    AGPTEK music player
+    """
 
     for root, _, files in os.walk(directory):
         for file in files:
             fullpathfile = os.path.join(root, file)
-            
+
             if str(fullpathfile).lower().endswith('.opus'):
                 fullpathfile = convert_to_mp3(fullpathfile)
 
             if str(fullpathfile).lower().endswith('.mp3'):
                 audio = ID3(fullpathfile)
                 artist = str(audio.get('TPE1', ''))
-                new_artist = normalize_tags(artist)
+                new_artist = normalize_artist(artist)
                 if new_artist != artist:
                     audio['TPE1'] = TPE1(encoding=3, text=[new_artist])
                     audio.save()
@@ -59,12 +61,11 @@ def normalize_audio_files_tags_for_USB_player(directory):
                 audio = OggVorbis(fullpathfile)
                 # in ogg the key field have multiple value so they are list
                 artist = str(audio.get('artist', '')[0])
-                new_artist = normalize_tags(artist)
+                new_artist = normalize_artist(artist)
                 if new_artist != artist:
                     audio['artist'] = new_artist
                     audio.save()
 
 
-
 if __name__ == "__main__":
-    normalize_audio_files_tags_for_USB_player(os.getcwd())
+    normalize_audio_files_tags_for_usb_player(os.getcwd())
