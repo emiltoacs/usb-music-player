@@ -5,43 +5,39 @@
 
 # Python requierement:
 # mutagen
-# python-python-ffmpeg
+# typed-ffmpeg
 
 import os
-from mutagen.id3 import TPE1, ID3
+from mutagen.id3 import ID3
+from mutagen.id3._frames import TPE1
 from mutagen.oggvorbis import OggVorbis
+# from ffmpeg import FFmpeg, FFmpegError
 import ffmpeg
 
-
-def normalize_artist(artist):
-    "Truncate artist field between beginning and first '+' to keep the same artist on all the album"
+def normalize_artist(artist: str) -> str:
+    """
+    Truncate artist field between beginning and the first character '+' to
+    keep the same artist on all the album. Arbitrarilly choose to keep only the
+    first.
+    """
     return artist.split("+")[0].strip()
     # pos_split = artist.find("+")
     # if pos_split != -1:
     #     new_artist = artist[:pos_split].rstrip()
 
 
-def convert_to_mp3(input_file):
+def convert_to_mp3(input_file: str) -> str:
     "Convert Opus to MP3 using ffmpeg"
 
     output_file = input_file.replace('.opus', '.mp3')
-    try:
-        ffm = ffmpeg.FFmpeg().input(input_file).output(output_file)
-        ffm.execute()
-        os.remove(input_file)
-        return output_file
-
-    except ffmpeg.FFmpegError as e:
-        print(f"Error converting : {e}")
-        return input_file
+    _ = (ffmpeg.input(filename=input_file).output(filename=output_file).run())
+    os.remove(input_file)
+    return output_file
 
 
-def normalize_audio_files_tags_for_usb_player(directory):
-    """
-    In the current directory and subdirectory, normalize the tags for my
-    AGPTEK music player
-    """
-
+def normalize_audio_files_tags_for_usb_player(directory: str) -> None:
+    "In the current directory and subdirectory, normalize the tags for my AGPTEK music player. Remove the multiple artist split by char '+' in the artist field for ogg and mp3. Convert the opus to mp3, because my player cannot read them."
+    
     for root, _, files in os.walk(directory):
         for file in files:
             fullpathfile = os.path.join(root, file)
@@ -50,21 +46,21 @@ def normalize_audio_files_tags_for_usb_player(directory):
                 fullpathfile = convert_to_mp3(fullpathfile)
 
             if str(fullpathfile).lower().endswith('.mp3'):
-                audio = ID3(fullpathfile)
-                artist = str(audio.get('TPE1', ''))
+                audioid3: ID3 = ID3(fullpathfile)
+                artist = str(audioid3.get('TPE1', ''))
                 new_artist = normalize_artist(artist)
                 if new_artist != artist:
-                    audio['TPE1'] = TPE1(encoding=3, text=[new_artist])
-                    audio.save()
+                    audioid3['TPE1'] = TPE1(encoding=3, text=[new_artist])
+                    audioid3.save(v2_version=4)
 
             if str(fullpathfile).lower().endswith('.ogg'):
-                audio = OggVorbis(fullpathfile)
+                audioogg: OggVorbis = OggVorbis(fullpathfile)
                 # in ogg the key field have multiple value so they are list
-                artist = str(audio.get('artist', '')[0])
+                artist = str(audioogg.get('artist', '')[0])
                 new_artist = normalize_artist(artist)
                 if new_artist != artist:
-                    audio['artist'] = new_artist
-                    audio.save()
+                    audioogg['artist'] = new_artist
+                    audioogg.save()
 
 
 if __name__ == "__main__":
