@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
 # Choose the directory where to to sanitize the music files
-# DIR_PATH = "/run/media/mil/AGP-A65/MUSIC"
-DIR_PATH = "/run/media/mil/AGP-A65/MUSIC/Femtogo - Francs-Tireur Partisans"
-
+# TODO pass the directory in argument or better detect USB key and interactively choose the user
+DIR_PATH: str = "/run/media/mil/AGP-A65/MUSIC"
+TERMINAL_OUPUT: bool = True
 
 # System requierement:
 # ffmpeg
@@ -28,7 +28,7 @@ def convert_to_mp3(input_file: str) -> tuple[str, str]:
     command = 'ffmpeg -i "' + input_file + '" -map_metadata 0:s:0 "' + output_file + '"'
     error_msg = ''
     result = subprocess.run(command, shell=True, capture_output=False, text=True, check=False)
-    if (result.stderr.lower().find("error")):
+    if (result.stderr is not None and result.stderr.lower().find("error")):
         error_msg = result.stderr 
     os.remove(input_file)
     return output_file, error_msg
@@ -51,7 +51,9 @@ def normalize_audio_files_tags_for_usb_player(directory: str) -> str:
 
     errors = ""
     for root, _, files in os.walk(directory):
+        print(f"Current directory : {files}") if TERMINAL_OUPUT else None
         for file in files:
+            print(f"\t{file}") if TERMINAL_OUPUT else None
             fullpathfile = os.path.join(root, file)
 
             if str(fullpathfile).lower().endswith('.opus'):
@@ -64,6 +66,7 @@ def normalize_audio_files_tags_for_usb_player(directory: str) -> str:
                 new_artist = normalize_tags(artist)
                 if new_artist != artist:
                     audioid3['TPE1'] = TPE1(encoding=3, text=[new_artist])
+                    print("normalize mp3 artist") if TERMINAL_OUPUT else None
                     audioid3.save(v2_version=4)
 
             if str(fullpathfile).lower().endswith('.ogg'):
@@ -73,13 +76,17 @@ def normalize_audio_files_tags_for_usb_player(directory: str) -> str:
                 new_artist = normalize_tags(artist)
                 if new_artist != artist:
                     audioogg['artist'] = new_artist
+                    print("normalize ogg artist") if TERMINAL_OUPUT else None
                     audioogg.save()
 
     return errors 
 
 
 if __name__ == "__main__":
-    # TODO pass the directory in argument or better detect USB key and interactively choose the user
-    _ = normalize_audio_files_tags_for_usb_player(os.path.abspath(DIR_PATH))
-    print("DONE sanitize_music_agptek_sandisky")
+    if os.path.isdir(DIR_PATH) and  os.access(DIR_PATH, os.R_OK):
+        _ = normalize_audio_files_tags_for_usb_player(os.path.abspath(DIR_PATH))
+        print("DONE sanitize_music_agptek_sandisky")
+    else:
+        print(f"ERROR no such directory\n{DIR_PATH}")
+    
 
